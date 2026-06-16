@@ -371,9 +371,10 @@
         <li class="toc-item"><a href="#the-problem" class="toc-link">The Problem We Couldn't Ignore</a></li>
         <li class="toc-item"><a href="#a-better-way" class="toc-link">There Is A Better Way</a></li>
         <li class="toc-item"><a href="#the-architecture" class="toc-link">The Architecture We Designed</a></li>
-        <li class="toc-item"><a href="#the-zoho-struggle" class="toc-link">The Zoho Struggle</a></li>
-        <li class="toc-item"><a href="#where-we-tripped" class="toc-link">Where We Tripped</a></li>
-        <li class="toc-item"><a href="#healthy-system" class="toc-link">How We Know The System Is Healthy</a></li>
+        <li class="toc-item"><a href="#the-zoho-struggle" class="toc-link">The Zoho Struggle Nobody Documents</a></li>
+        <li class="toc-item"><a href="#where-we-tripped" class="toc-link">Lived Experience — Failures We Corrected</a></li>
+        <li class="toc-item"><a href="#edge-cases" class="toc-link">Edge Cases Worth Calling Out Separately</a></li>
+        <li class="toc-item"><a href="#healthy-system" class="toc-link">We Don't Guess. We Measure.</a></li>
         <li class="toc-item"><a href="#the-results" class="toc-link">The Results</a></li>
         <li class="toc-item"><a href="#lessons" class="toc-link">Lessons For Anyone Building This</a></li>
         <li class="toc-item"><a href="#where-we-are-now" class="toc-link">Where We Are Now</a></li>
@@ -400,8 +401,11 @@
       </section>
 
       <section id="a-better-way">
-        <h2>There Is A Better Way — Just Not A Magic One</h2>
-        <p>The approach we landed on was <strong>pragmatic automation</strong>: use AI where it excels (extracting data from unstructured input), use deterministic rules where accuracy is non-negotiable (ledger mapping, GSTIN validation), and keep humans in the loop for exceptions — not for everything. That combination is what we spent three months building.</p>
+        <h2>There Is A Better Way</h2>
+        <p>The answer wasn't to avoid AI — it was to use it deliberately. LLMs are genuinely excellent at one specific thing: reading unstructured documents and pulling out structured fields. An invoice is exactly that kind of document. So we leaned into that strength.</p>
+        <p>Our approach was <strong>pragmatic automation</strong>. We used AI for data extraction — the part where human effort is highest and the format is most unpredictable. For everything that required business judgement — ledger assignment, GSTIN validation, vendor mapping — we used deterministic rules. Code that behaves the same way every single time, that can be audited, and that doesn't guess.</p>
+        <p>The third element was <strong>human-in-the-loop validation</strong>. Rather than trying to build a system that handles 100% of invoices automatically from day one, we designed a quarantine queue. Invoices that pass all checks are auto-processed. Those that fail — a missing field, a low-confidence extraction, a vendor mismatch — are routed to a review dashboard where a human makes the call. This isn't a fallback. It's a designed feature that keeps accuracy high while the system matures.</p>
+        <p>The combination of AI extraction, rule-based validation, and structured human oversight is what makes the system reliable. Not AI alone.</p>
       </section>
 
       <section id="the-architecture">
@@ -442,18 +446,18 @@
       </section>
 
       <section id="where-we-tripped">
-        <h2>Where We Tripped</h2>
-        <p>Honest account of the edge cases we missed or had to correct:</p>
-        <p>Our first instinct was to reach for AI. LLMs are genuinely excellent at reading unstructured documents and pulling out structured fields. But we learned quickly that AI alone is not the answer.</p>
-        <p>LLMs are probabilistic. In an early test, we fed the model an invoice with no quantity field. The model, having nothing to work from, assigned zero — confidently, silently. The actual invoice value was ₹2,50,000. No error. No flag. Just a wrong number flowing downstream.</p>
+        <h2>Lived Experience — Failures We Corrected</h2>
+        <p>No system survives first contact with real data intact. Here is an honest account of what broke, what we missed, and how we fixed it.</p>
 
         <div class="edge-case-card">
           <div class="card-header" onclick="toggleCard(this)">
-            <h4>Missing quantity → hallucinated zero</h4>
+            <h4>Missing quantity and rate fields → wrong values in the system</h4>
             <span class="toggle-icon">+</span>
           </div>
           <div class="card-body">
-            <p>When a quantity field was absent from an invoice, the LLM assigned zero — confidently. We added an explicit check: if a required numeric field is null or zero on an invoice where a non-zero amount is present, the invoice is quarantined. We do not let the model fill in missing numerics.</p>
+            <p>This was the most instructive failure we had. Some vendors send invoices where the quantity or rate isn't explicitly listed as a separate field — it's implied by the line item description or simply absent. The LLM, having nothing concrete to extract, would assign zero to those fields and move on. Confidently. Silently.</p>
+            <p>The downstream effect was serious: a bill would be created in Zoho with a zero quantity or zero rate, producing a wrong total that nobody caught until reconciliation. The system had processed the invoice successfully — it just had the wrong numbers inside it.</p>
+            <p>The fix was an explicit validation gate: if quantity or rate on any line item is zero or null, and the invoice total is non-zero, the invoice is quarantined immediately. We do not allow the model to fill in missing numerics with assumptions. A human reviews it, supplies the correct values, and only then does it move forward.</p>
           </div>
         </div>
 
@@ -463,7 +467,8 @@
             <span class="toggle-icon">+</span>
           </div>
           <div class="card-body">
-            <p>We assumed one email equalled one invoice. Then a vendor started sending three invoices as attachments in a single email. Our system read the first and silently ignored the rest. We rearchitected the ingestion step to scan all attachments in every email and create separate processing jobs for each one.</p>
+            <p>We assumed one email equalled one invoice. Then a vendor started sending three invoices as attachments in a single message. Our system read the first attachment and silently ignored the rest. Two invoices went unprocessed — no error, no flag.</p>
+            <p>We rearchitected the ingestion step to enumerate all attachments on every incoming email and create separate, independent processing jobs for each one.</p>
           </div>
         </div>
 
@@ -473,7 +478,7 @@
             <span class="toggle-icon">+</span>
           </div>
           <div class="card-body">
-            <p>For non-GST-registered vendors, the LLM occasionally matched invoice details to the wrong vendor in our master. The fix was explicit GSTIN-to-vendor mapping enforced at the validation layer — not something the model decides.</p>
+            <p>For non-GST-registered vendors, the LLM occasionally mapped invoice details to the wrong vendor in our master — a result of similar names or shared address fields. The fix was enforcing explicit GSTIN-to-vendor mapping at the validation layer. One GSTIN maps to exactly one vendor record. The model extracts; the rules decide.</p>
           </div>
         </div>
 
@@ -483,29 +488,36 @@
             <span class="toggle-icon">+</span>
           </div>
           <div class="card-body">
-            <p>Vendors resend invoices. Emails get forwarded. People accidentally resubmit. We implemented an idempotency key at the point of ingestion — every invoice gets a unique key on arrival, and the same invoice cannot enter the system twice regardless of how many times it arrives.</p>
+            <p>Vendors resend invoices. Emails get forwarded. People accidentally resubmit. We implemented an idempotency key at the point of ingestion — every invoice gets a unique key the moment it arrives, and the same invoice cannot enter the system a second time regardless of how many times it's sent.</p>
           </div>
         </div>
 
         <div class="edge-case-card">
           <div class="card-header" onclick="toggleCard(this)">
-            <h4>Zoho API downtime</h4>
+            <h4>Zoho API downtime and token expiry</h4>
             <span class="toggle-icon">+</span>
           </div>
           <div class="card-body">
-            <p>We built the assumption of Zoho being unavailable into the architecture from early on — using MongoDB as a buffer and implementing retry logic with exponential backoff. What we also handled: OAuth token expiry mid-run. <code>token_service.py</code> intercepts the 401, refreshes the token transparently, and retries the request without any human intervention or data loss.</p>
+            <p>We built MongoDB as a buffer from the start, assuming Zoho would be unavailable at some point. What we also handled proactively: OAuth token expiry mid-run. <code>token_service.py</code> intercepts the 401, silently refreshes the token, and retries the request — no human intervention, no data loss, no interruption visible to the user.</p>
           </div>
         </div>
       </section>
 
+      <section id="edge-cases">
+        <h2>Edge Cases Worth Calling Out Separately</h2>
+        <p>Some issues weren't failures — they were gaps in our initial assumptions that only surfaced with real invoice data.</p>
+        <p><strong>Invoices with implicit line item structure</strong> — Some vendors don't separate quantity and rate at all. The total is the total. We now detect this pattern and handle it as a single-line item rather than trying to decompose it.</p>
+        <p><strong>GST number absent on vendor invoices</strong> — Not all vendors are GST-registered. Our initial validation required a GSTIN on every invoice. We had to build a separate pathway for unregistered vendors that still validates vendor identity through other fields (PAN, bank account, registered address).</p>
+        <p><strong>Granular ledger mapping</strong> — We had to cover ledger mapping for each and every different vendor, which initially was not a very easy thing to do due to the API structuring from Zoho. We built out a dedicated endpoint to fetch the chart of accounts and updated our internal schemas so that users can select the correct ledger account dynamically in the review dashboard.</p>
+      </section>
+
       <section id="healthy-system">
-        <h2>How We Know The System Is Healthy</h2>
-        <p>We don't guess. We measure. But early on we made the mistake of building one dashboard and pointing both the accounting manager and the support engineer at it. They need completely different things.</p>
-        <p><strong>Usage Dashboard (Accounting Manager)</strong><br>
-        How many invoices were processed this month. Average processing time. Human-in-the-loop intervention rate and how it's trending. In our early runs, roughly 50% of invoices needed some form of human correction. We've brought that below 5%. The accounting manager's job has shifted from fixing errors to reading patterns.</p>
-        <p><strong>Health Dashboard (Support Engineer)</strong><br>
-        System uptime. API error rates. Retry counts. Queue depth. Failed job logs. This is the view that tells us something is silently going wrong before a user reports it.</p>
-        <p>Two different stakeholders. Two different dashboards. Do not merge them.</p>
+        <h2>We Don't Guess. We Measure.</h2>
+        <p>We built two distinct metrics viewing systems into the platform — because the people who need to understand the system are asking fundamentally different questions.</p>
+        <p><strong>System health metrics</strong> are for the support engineer. Is the API responding? Are there retry spikes? Is the queue backing up? Did something fail silently overnight? This view is about catching technical issues early — ideally before anyone else in the business notices something is wrong. Uptime, error rates, queue depth, failed job logs — that's the language of this dashboard.</p>
+        <p><strong>Usage metrics</strong> are for the finance manager. How many invoices were processed this month? How long did each one take on average? How many went straight through versus needing human intervention? This view is about understanding the system's real-world performance and whether it's actually delivering on its promise.</p>
+        <p>The usage metrics told a clear story as the system matured. In the early months, roughly 50% of invoices needed some form of human correction or override. By the time we reached steady state, that number was down to 5% — out of 94 invoices in one recent month, 89 went straight through and only 5 needed quarantine and human-in-the-loop correction. That trend is visible directly in the dashboard. Not guessing. Measuring.</p>
+        <p>Two metrics systems. Two stakeholders. Do not merge them.</p>
       </section>
 
       <section id="the-results" class="results-section">
