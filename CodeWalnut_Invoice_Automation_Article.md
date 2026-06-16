@@ -23,10 +23,6 @@ The moment that made us decide something had to change: a founder asked to see t
 
 ## There Is A Better Way — Just Not A Magic One
 
-Our first instinct was to reach for AI. LLMs are genuinely excellent at reading unstructured documents and pulling out structured fields. But we learned quickly that AI alone is not the answer.
-
-LLMs are probabilistic. In an early test, we fed the model an invoice with no quantity field. The model, having nothing to work from, assigned zero — confidently, silently. The actual invoice value was ₹2,50,000. No error. No flag. Just a wrong number flowing downstream.
-
 The approach we landed on was **pragmatic automation**: use AI where it excels (extracting data from unstructured input), use deterministic rules where accuracy is non-negotiable (ledger mapping, GSTIN validation), and keep humans in the loop for exceptions — not for everything. That combination is what we spent three months building.
 
 ---
@@ -79,6 +75,10 @@ The lesson: when you're building on top of a third-party accounting system, assu
 ## Where We Tripped
 
 Honest account of the edge cases we missed or had to correct:
+
+Our first instinct was to reach for AI. LLMs are genuinely excellent at reading unstructured documents and pulling out structured fields. But we learned quickly that AI alone is not the answer.
+
+LLMs are probabilistic. In an early test, we fed the model an invoice with no quantity field. The model, having nothing to work from, assigned zero — confidently, silently. The actual invoice value was ₹2,50,000. No error. No flag. Just a wrong number flowing downstream.
 
 ### Missing quantity → hallucinated zero
 
