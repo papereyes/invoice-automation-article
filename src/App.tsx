@@ -1,13 +1,23 @@
-import { motion, useScroll, useSpring } from 'framer-motion';
-import { Database, Activity } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { Sun, Moon } from 'lucide-react';
 import articleContent from '../CodeWalnut_Invoice_Automation_Article.md?raw';
+import { ArchitectureDashboard } from './ArchitectureDashboard';
 import './index.css';
 
+// Custom ID generation for headers
+const generateId = (text: string) => {
+  return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+};
+
 const MarkdownComponents: any = {
+  h2: ({ children }: any) => {
+    const text = children[0];
+    const id = generateId(text);
+    return <h2 id={id}>{children}</h2>;
+  },
   blockquote: ({ node, children, ...props }: any) => {
-    // Convert React node to string for simple parsing
     const getChildrenText = (nodes: any): string => {
       if (!nodes) return '';
       if (typeof nodes === 'string') return nodes;
@@ -20,34 +30,15 @@ const MarkdownComponents: any = {
 
     if (fullText.includes('[Architecture Diagram — insert here]')) {
       return (
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="interactive-diagram"
-        >
-          <div className="diagram-header">
-            <Database className="diagram-icon" size={24} />
-            <h3>System Architecture</h3>
-          </div>
-          <img src="/Invoice System Architecture.png" alt="Architecture Diagram" className="diagram-image" />
-          <p className="diagram-caption">Five-layer system: n8n (ingestion) → FastAPI (application) → MongoDB (database) → React SPA (presentation) → Zoho Books (accounting)</p>
-        </motion.div>
+        <div className="diagram-container">
+          <ArchitectureDashboard />
+        </div>
       );
     }
     
     if (fullText.includes('[Observability Dashboard Diagram — insert here]')) {
       return (
-         <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="interactive-diagram"
-        >
-          <div className="diagram-header">
-            <Activity className="diagram-icon" size={24} />
-            <h3>Observability Metrics</h3>
-          </div>
+         <div className="diagram-container">
           <div className="mock-dashboard">
              <div className="stat-card">
                <span className="stat-value">95%</span>
@@ -62,8 +53,7 @@ const MarkdownComponents: any = {
                <span className="stat-label">Error Rate</span>
              </div>
           </div>
-          <p className="diagram-caption">Audit trail, invoice received / processed / pushed to Zoho, accepted / rejected / pending counts, line chart of invoice volume over time</p>
-        </motion.div>
+        </div>
       );
     }
 
@@ -72,54 +62,59 @@ const MarkdownComponents: any = {
 };
 
 function App() {
-  const { scrollYProgress } = useScroll();
-  const scaleX = useSpring(scrollYProgress, {
-    stiffness: 100,
-    damping: 30,
-    restDelta: 0.001
-  });
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
+
+  // Extract H2s for TOC
+  const headings = articleContent
+    .split('\n')
+    .filter(line => line.startsWith('## '))
+    .map(line => line.replace('## ', '').trim());
 
   return (
-    <div className="app-container">
-      <div className="progress-bar-container">
-        <motion.div className="progress-bar" style={{ scaleX }} />
-      </div>
+    <div className="medium-layout">
+      <nav className="sidebar">
+        <div className="sidebar-header">
+          <h3>Table of Contents</h3>
+          <button 
+            className="theme-toggle" 
+            onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+          >
+            {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+          </button>
+        </div>
+        <ul className="toc-list">
+          {headings.map((heading, idx) => (
+            <li key={idx}>
+              <a href={`#${generateId(heading)}`}>{heading}</a>
+            </li>
+          ))}
+        </ul>
+      </nav>
 
-      <header className="hero-section">
-        <div className="hero-glow" />
-        <motion.div 
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
-          <span className="hero-badge">Engineering Success Story</span>
-          <h1 className="hero-title">How We Automated Vendor Invoice Processing</h1>
-          <p className="hero-subtitle">
-            Three months of building, breaking, and fixing an AI-assisted invoice platform. 
-            Here is what the architecture looks like, what went wrong, and what we learned from it.
-          </p>
-        </motion.div>
-      </header>
+      <main className="content-area">
+        <article className="markdown-container">
+          <header className="article-header">
+            <h1>How We Automated Vendor Invoice Processing</h1>
+            <p className="article-subtitle">Three months of building, breaking, and fixing an AI-assisted invoice platform.</p>
+            <div className="article-meta">
+              <span>CodeWalnut Engineering</span>
+              <span>·</span>
+              <span>June 2026</span>
+            </div>
+          </header>
 
-      <main className="content-section">
-        <motion.div 
-          className="markdown-container"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.2, duration: 0.5 }}
-        >
           <ReactMarkdown 
             remarkPlugins={[remarkGfm]}
             components={MarkdownComponents}
           >
             {articleContent}
           </ReactMarkdown>
-        </motion.div>
+        </article>
       </main>
-
-      <footer className="site-footer">
-        <p>CodeWalnut Engineering · June 2026</p>
-      </footer>
     </div>
   );
 }
