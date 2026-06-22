@@ -30,8 +30,18 @@ const MarkdownComponents: any = {
 
     if (fullText.includes('[Architecture Diagram — insert here]')) {
       return (
-        <div className="diagram-container">
-          <ArchitectureDashboard />
+        <div className="diagram-section">
+          <div className="diagram-container">
+            <div className="diagram-header">
+              <h3>System Architecture</h3>
+            </div>
+            <img src="/Invoice System Architecture.png" alt="Architecture Diagram" className="diagram-image" />
+            <p className="diagram-caption">Five-layer system: n8n (ingestion) → FastAPI (application) → MongoDB (database) → React SPA (presentation) → Zoho Books (accounting)</p>
+          </div>
+          
+          <div className="diagram-container" style={{ marginTop: '3rem' }}>
+            <ArchitectureDashboard />
+          </div>
         </div>
       );
     }
