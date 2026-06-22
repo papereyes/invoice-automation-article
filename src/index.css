@@ -698,7 +698,7 @@ body {
 .cell-8 { grid-column: 1; grid-row: 3; }
 
 .grid-arrow {
-  color: var(--border-color);
+  color: #6366f1; /* Distinct indigo color for visibility */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -715,8 +715,9 @@ body {
   top: 50%;
   left: 0;
   right: 0;
-  height: 2px;
-  background: var(--border-color);
+  height: 3px;
+  background-image: linear-gradient(to right, transparent 50%, #6366f1 50%);
+  background-size: 12px 100%; /* Creates a dashed effect */
   transform: translateY(-50%);
   z-index: 0;
 }
@@ -732,8 +733,9 @@ body {
   top: 0;
   bottom: 0;
   left: 50%;
-  width: 2px;
-  background: var(--border-color);
+  width: 3px;
+  background-image: linear-gradient(to bottom, transparent 50%, #6366f1 50%);
+  background-size: 100% 12px; /* Creates a dashed effect */
   transform: translateX(-50%);
   z-index: 0;
 }
@@ -744,6 +746,7 @@ body {
   padding: 4px;
   position: relative;
   z-index: 1;
+  stroke-width: 3px; /* Make the arrow heads bolder */
 }
 
 .flow-node {
